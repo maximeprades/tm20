@@ -10,16 +10,31 @@ description = "A strict printable CommonMark/GFM subset with source diagnostics 
 keywords = ["markdown", "commonmark", "thermal", "printer"]
 categories = ["parser-implementations", "text-processing"]
 
+[features]
+default = ["math"]
+# LaTeX math rasterized with RaTeX and its embedded KaTeX fonts. Without it,
+# math nodes still parse and become a `markdown.unsupported` error at their
+# source location; the integration tests assume it is on.
+math = [
+    "dep:ratex-parser",
+    "dep:ratex-layout",
+    "dep:ratex-render",
+    "dep:ratex-types",
+    "dep:ratex-font",
+    "dep:ratex-font-loader",
+    "dep:ab_glyph",
+]
+
 [dependencies]
 comrak = { version = "0.54", default-features = false }
 tm20-set = { workspace = true }
-ratex-parser = "0.1.14"
-ratex-layout = "0.1.14"
-ratex-render = { version = "0.1.14", features = ["embed-fonts"] }
-ratex-types = "0.1.14"
-ratex-font = "0.1.14"
-ratex-font-loader = { version = "0.1.14", features = ["embed-fonts"] }
-ab_glyph = "0.2"
+ratex-parser = { version = "0.1.14", optional = true }
+ratex-layout = { version = "0.1.14", optional = true }
+ratex-render = { version = "0.1.14", features = ["embed-fonts"], optional = true }
+ratex-types = { version = "0.1.14", optional = true }
+ratex-font = { version = "0.1.14", optional = true }
+ratex-font-loader = { version = "0.1.14", features = ["embed-fonts"], optional = true }
+ab_glyph = { version = "0.2", optional = true }
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }

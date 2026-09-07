@@ -16,6 +16,7 @@ pub enum Error {
     Framing(FramingError),
     Raster(RasterError),
     Io(io::Error),
+    #[cfg(not(target_arch = "wasm32"))]
     Serial(serialport::Error),
 }
 
@@ -29,6 +30,7 @@ impl fmt::Display for Error {
             Error::Framing(e) => write!(f, "{e}"),
             Error::Raster(e) => write!(f, "{e}"),
             Error::Io(e) => write!(f, "{e}"),
+            #[cfg(not(target_arch = "wasm32"))]
             Error::Serial(e) => write!(f, "{e}"),
         }
     }
@@ -78,6 +80,7 @@ impl From<io::Error> for Error {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<serialport::Error> for Error {
     fn from(e: serialport::Error) -> Self {
         Error::Serial(e)
@@ -207,6 +210,7 @@ pub enum UsbError {
     },
     NoBulkOut,
     NoBulkIn,
+    #[cfg(not(target_arch = "wasm32"))]
     Nusb(nusb::Error),
     Transfer(io::Error),
 }
@@ -220,6 +224,7 @@ impl fmt::Display for UsbError {
             },
             UsbError::NoBulkOut => write!(f, "no bulk OUT endpoint"),
             UsbError::NoBulkIn => write!(f, "no bulk IN endpoint"),
+            #[cfg(not(target_arch = "wasm32"))]
             UsbError::Nusb(e) => write!(f, "{e}"),
             UsbError::Transfer(e) => write!(f, "{e}"),
         }
@@ -228,6 +233,7 @@ impl fmt::Display for UsbError {
 
 impl std::error::Error for UsbError {}
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<nusb::Error> for UsbError {
     fn from(e: nusb::Error) -> Self {
         UsbError::Nusb(e)

@@ -10,7 +10,8 @@ description = "Typed ESC/POS commands and USB, serial, and TCP transports for Ep
 keywords = ["escpos", "epson", "thermal", "printer"]
 categories = ["hardware-support", "encoding"]
 
-[dependencies]
+# Protocol, encode, and Raster build everywhere. Transports need a host OS.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 nusb = "0.2"
 serialport = { version = "4", default-features = false }
 

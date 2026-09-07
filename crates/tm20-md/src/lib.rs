@@ -21,7 +21,45 @@
 mod error;
 mod image;
 mod lower;
+#[cfg(feature = "math")]
 mod math;
+
+/// Without the `math` feature every LaTeX node is an error at its source
+/// location. The callers in `lower` attach the location.
+#[cfg(not(feature = "math"))]
+mod math {
+    use tm20_set::{Math, TextSize};
+
+    use crate::error::Error;
+
+    pub fn inline(_latex: &str, _size: TextSize) -> Result<Math, Error> {
+        Err(unsupported())
+    }
+
+    pub fn display(_latex: &str, _size: TextSize) -> Result<Math, Error> {
+        Err(unsupported())
+    }
+
+    fn unsupported() -> Error {
+        Error::unsupported(
+            "math",
+            "this build of tm20-md has no math renderer",
+            "remove the LaTeX, or build tm20-md with the `math` feature",
+        )
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn math_is_a_typed_unsupported_error() {
+            let err = display(r"\frac{1}{2}", TextSize::Pt11).unwrap_err();
+            assert_eq!(err.code(), "markdown.unsupported");
+            assert!(err.to_string().contains("math renderer"), "{err}");
+        }
+    }
+}
 
 pub use error::Error;
 pub use image::image_bytes;

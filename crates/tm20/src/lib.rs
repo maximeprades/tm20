@@ -29,14 +29,17 @@ pub mod graphics;
 pub mod host;
 pub mod identify;
 pub mod memory;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod net;
 pub mod raster;
 pub mod reply;
 pub mod selftest;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod serial;
 pub mod status;
 pub mod symbol;
 pub mod transport;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod usb;
 
 pub use barcode::{Barcode, BarcodeFont, BarcodeKind, BarcodeOptions, Code128Set, HriPosition};
@@ -52,10 +55,12 @@ pub use graphics::{Graphics, GraphicsScale, max_height, pack};
 pub use host::{ean13_page, hello, qr_page, rule, ruler, text_page};
 pub use identify::{InfoRequest, encode_info, encode_process_id, parse_process_id, query_info};
 pub use memory::Memory;
+#[cfg(not(target_arch = "wasm32"))]
 pub use net::Tcp;
 pub use raster::Raster;
 pub use reply::ReplyReader;
 pub use selftest::{Case as TestCase, catalog, find as find_case};
+#[cfg(not(target_arch = "wasm32"))]
 pub use serial::Serial;
 pub use status::{Status, StatusRequest, parse_status};
 pub use symbol::{
@@ -63,6 +68,7 @@ pub use symbol::{
     MaxiCodeMode, Pdf417, Pdf417Ecc, Pdf417Kind, Qr, QrEcc, QrModel,
 };
 pub use transport::Transport;
+#[cfg(not(target_arch = "wasm32"))]
 pub use usb::{PortStatus, Usb, UsbDeviceInfo};
 
 pub const VID: u16 = 0x04b8;
