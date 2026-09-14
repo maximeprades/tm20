@@ -1,10 +1,11 @@
 //! [`FaceTable`] registry and borrowed [`ResolvedFaces`] for one layout.
 
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::error::Error;
 
-use super::parse::{DisplayFace, Face, TextFace};
+use super::parse::{DisplayFace, Face, Fallback, TextFace};
 use super::{Cut, DisplayCut, FaceRequirements, HOUSE, Voice};
 
 /// Loaded cuts. The sheet names [`Cut`]s; this table is what those names mean.
@@ -12,6 +13,7 @@ use super::{Cut, DisplayCut, FaceRequirements, HOUSE, Voice};
 pub struct FaceTable {
     text: [Option<TextFace>; Cut::COUNT],
     display: [Option<DisplayFace>; DisplayCut::COUNT],
+    fallback: Option<Rc<Fallback>>,
 }
 
 impl FaceTable {
@@ -19,12 +21,41 @@ impl FaceTable {
         Self::default()
     }
 
-    pub fn set_text(&mut self, cut: Cut, face: TextFace) {
+    pub fn set_text(&mut self, cut: Cut, mut face: TextFace) {
+        face.inner_mut().set_fallback(self.fallback.clone());
         self.text[cut.index()] = Some(face);
     }
 
-    pub fn set_display(&mut self, cut: DisplayCut, face: DisplayFace) {
+    pub fn set_display(&mut self, cut: DisplayCut, mut face: DisplayFace) {
+        face.inner_mut().set_fallback(self.fallback.clone());
         self.display[cut.index()] = Some(face);
+    }
+
+    /// One face every cut falls back to for characters it lacks, set at
+    /// `scale_percent` of the run's em. With a fallback in place a run never
+    /// fails on a missing glyph: the fallback draws it, or a placeholder box
+    /// stands in when neither face has it. Without one, a missing glyph is
+    /// [`Error::MissingGlyph`].
+    ///
+    /// Typical use is an emoji face behind a text family. Emoji faces draw
+    /// about one em tall from below the baseline, so 85 percent puts them
+    /// between the text's ascender and descender.
+    pub fn set_fallback(&mut self, face: Face, scale_percent: u8) {
+        let fallback = Rc::new(Fallback {
+            face,
+            scale_percent: scale_percent.max(1),
+        });
+        self.fallback = Some(Rc::clone(&fallback));
+        for face in self.text.iter_mut().flatten() {
+            face.inner_mut().set_fallback(Some(Rc::clone(&fallback)));
+        }
+        for face in self.display.iter_mut().flatten() {
+            face.inner_mut().set_fallback(Some(Rc::clone(&fallback)));
+        }
+    }
+
+    pub fn has_fallback(&self) -> bool {
+        self.fallback.is_some()
     }
 
     /// Offer a parsed face to the slots its PostScript name owns. Unknown

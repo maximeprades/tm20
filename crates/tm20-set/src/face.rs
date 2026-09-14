@@ -3,6 +3,7 @@
 //! is decided outside this crate. HarfRust shapes; fontdue paints; this crate
 //! caches the strike.
 
+mod fallback;
 mod parse;
 mod registry;
 mod shape;

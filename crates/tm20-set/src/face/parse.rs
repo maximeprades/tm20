@@ -3,6 +3,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use fontdue::{Font as RasterFont, FontSettings};
@@ -24,6 +25,25 @@ pub struct Face {
     upem: u16,
     italic_tan: f32,
     strikes: RefCell<HashMap<(u16, u16), SharedStrike>>,
+    /// Second face for characters this one lacks. Shared by every face of a
+    /// [`super::FaceTable`]; see [`super::FaceTable::set_fallback`].
+    fallback: Option<Rc<Fallback>>,
+    /// One placeholder box per ppem, for characters no face can draw.
+    placeholders: RefCell<HashMap<u16, SharedStrike>>,
+}
+
+/// A fallback face and the size it is set at, as a share of the primary em.
+pub(crate) struct Fallback {
+    pub(crate) face: Face,
+    pub(crate) scale_percent: u8,
+}
+
+impl Fallback {
+    /// The fallback's ppem for a primary run at `ppem`, never below one dot.
+    pub(crate) fn ppem_for(&self, ppem: u16) -> u16 {
+        let scaled = (u32::from(ppem) * u32::from(self.scale_percent) + 50) / 100;
+        u16::try_from(scaled).unwrap_or(u16::MAX).max(1)
+    }
 }
 
 /// Text optical role. Accepts only [`crate::size::TextSize`].
@@ -46,6 +66,8 @@ impl Clone for Face {
             upem: self.upem,
             italic_tan: self.italic_tan,
             strikes: RefCell::new(HashMap::new()),
+            fallback: self.fallback.clone(),
+            placeholders: RefCell::new(HashMap::new()),
         }
     }
 }
@@ -156,7 +178,17 @@ impl Face {
             upem,
             italic_tan,
             strikes: RefCell::new(HashMap::new()),
+            fallback: None,
+            placeholders: RefCell::new(HashMap::new()),
         })
+    }
+
+    pub(crate) fn set_fallback(&mut self, fallback: Option<Rc<Fallback>>) {
+        self.fallback = fallback;
+    }
+
+    pub(crate) fn fallback(&self) -> Option<&Rc<Fallback>> {
+        self.fallback.as_ref()
     }
 
     pub(crate) fn italic_tan(&self) -> f32 {
@@ -241,6 +273,20 @@ impl Face {
             .insert((glyph_id, ppem), Arc::clone(&s));
         s
     }
+
+    /// The box drawn for a character that neither this face nor its fallback
+    /// has. Cached per ppem like a strike.
+    pub(crate) fn placeholder(&self, ppem: u16) -> SharedStrike {
+        {
+            let cache = self.placeholders.borrow();
+            if let Some(s) = cache.get(&ppem) {
+                return Arc::clone(s);
+            }
+        }
+        let s = Arc::new(Strike::placeholder(ppem));
+        self.placeholders.borrow_mut().insert(ppem, Arc::clone(&s));
+        s
+    }
 }
 
 impl TextFace {
@@ -251,6 +297,10 @@ impl TextFace {
     pub(crate) fn inner(&self) -> &Face {
         &self.0
     }
+
+    pub(crate) fn inner_mut(&mut self) -> &mut Face {
+        &mut self.0
+    }
 }
 
 impl DisplayFace {
@@ -260,6 +310,10 @@ impl DisplayFace {
 
     pub(crate) fn inner(&self) -> &Face {
         &self.0
+    }
+
+    pub(crate) fn inner_mut(&mut self) -> &mut Face {
+        &mut self.0
     }
 }
 

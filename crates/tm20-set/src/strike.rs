@@ -133,6 +133,45 @@ pub(crate) fn from_mask(
     }
 }
 
+impl Strike {
+    /// The mark for a character no face can draw: a hollow box about the size
+    /// of a capital, standing on the baseline. Never empty, so the reader sees
+    /// that something was there.
+    pub fn placeholder(ppem: u16) -> Strike {
+        placeholder(ppem)
+    }
+}
+
+fn placeholder(ppem: u16) -> Strike {
+    let em = u32::from(ppem.max(1));
+    let width = (em * 11 / 20).max(3);
+    let height = (em * 13 / 20).max(3);
+    let stroke = (em / 16).clamp(1, (width.min(height) / 2).max(1));
+    let bearing = em / 10;
+    let (Ok(w16), Ok(h16)) = (u16::try_from(width), u16::try_from(height)) else {
+        return Strike::empty(0);
+    };
+    let (w, h, s) = (width as usize, height as usize, stroke as usize);
+    let stride = width_bytes(w16);
+    let mut bits = vec![0u8; stride * h];
+    for y in 0..h {
+        for x in 0..w {
+            if y < s || y >= h - s || x < s || x >= w - s {
+                set_black(&mut bits, stride, x, y);
+            }
+        }
+    }
+    let advance = i32::try_from((width + 2 * bearing) * FRAC as u32).unwrap_or(i32::MAX);
+    Strike {
+        left: i32::try_from(bearing).unwrap_or(0),
+        top: i32::try_from(height).unwrap_or(0),
+        width: w16,
+        height: h16,
+        bits,
+        advance,
+    }
+}
+
 pub(crate) type SharedStrike = Arc<Strike>;
 
 #[cfg(test)]
@@ -157,5 +196,19 @@ mod tests {
     fn empty_coverage_is_empty_ink() {
         assert!(Strike::empty(64).ink().is_empty());
         assert!(from_mask(0, 0, 0, 0, &[], 1.0).ink().is_empty());
+    }
+
+    #[test]
+    fn placeholder_is_a_hollow_box_on_the_baseline() {
+        let box_ = placeholder(31);
+        assert_eq!((box_.width, box_.height), (17, 20));
+        assert_eq!(box_.top, 20, "stands on the baseline");
+        assert!(box_.advance > i32::from(box_.width) * FRAC);
+        let stride = width_bytes(box_.width);
+        let bit = |x: usize, y: usize| box_.bits[y * stride + x / 8] & (0x80 >> (x % 8)) != 0;
+        assert!(bit(0, 0) && bit(16, 19) && bit(8, 0) && bit(0, 10));
+        assert!(!bit(8, 10), "the middle is paper");
+        let tiny = placeholder(1);
+        assert!(tiny.width >= 3 && tiny.height >= 3);
     }
 }
